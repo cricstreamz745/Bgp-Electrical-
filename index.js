@@ -1,8 +1,11 @@
 import express from "express";
 import multer from "multer";
 import fetch from "node-fetch";
+import cors from "cors";
 
 const app = express();
+app.use(cors()); // Allow all origins
+
 const upload = multer();
 
 const SUPABASE_URL = process.env.SUPABASE_URL;

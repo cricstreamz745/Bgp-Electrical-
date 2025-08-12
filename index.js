@@ -1,40 +1,40 @@
-export default {
-  async fetch(req, env) {
-    if (req.method === 'POST') {
-      try {
-        const formData = await req.formData();
-        const file = formData.get('file');
+import express from "express";
+import multer from "multer";
+import fetch from "node-fetch";
 
-        if (!file || typeof file === 'string') {
-          return new Response('No file uploaded', { status: 400 });
-        }
+const app = express();
+const upload = multer();
 
-        const fileName = Date.now() + '-' + file.name;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
-        const uploadRes = await fetch(`${env.SUPABASE_URL}/storage/v1/object/photos/${fileName}`, {
-          method: 'POST',
-          headers: {
-            'apikey': env.SUPABASE_KEY,
-            'Authorization': `Bearer ${env.SUPABASE_KEY}`,
-          },
-          body: file.stream()
-        });
+app.get("/", (req, res) => {
+  res.send("Photo upload backend is running!");
+});
 
-        if (!uploadRes.ok) {
-          const errText = await uploadRes.text();
-          return new Response(`Upload failed: ${errText}`, { status: uploadRes.status });
-        }
+app.post("/upload", upload.single("file"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
-        const publicUrl = `${env.SUPABASE_URL}/storage/v1/object/public/photos/${fileName}`;
-        return new Response(JSON.stringify({ url: publicUrl }), {
-          headers: { 'Content-Type': 'application/json' }
-        });
+  const fileName = Date.now() + "-" + req.file.originalname;
 
-      } catch (err) {
-        return new Response('Error: ' + err.message, { status: 500 });
-      }
-    }
+  const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/photos/${fileName}`, {
+    method: "POST",
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": req.file.mimetype
+    },
+    body: req.file.buffer
+  });
 
-    return new Response('Use POST to upload file');
+  if (!uploadRes.ok) {
+    const err = await uploadRes.text();
+    return res.status(500).json({ error: "Upload failed", details: err });
   }
-};
+
+  const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/photos/${fileName}`;
+  res.json({ url: publicUrl });
+});
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => console.log(`Server running on port ${port}`));
